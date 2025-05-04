@@ -1,0 +1,14 @@
+{
+  "id": "passport",
+  "title": "Паспорт гражданина РФ",
+  "fields": [
+    {"name": "Фамилия", "type": "str", "required": true},
+    {"name": "Имя", "type": "str", "required": true},
+    {"name": "Отчество", "type": "str", "required": false},
+    {"name": "Дата рождения", "type": "date", "required": true},
+    {"name": "Серия", "type": "str", "required": true},
+    {"name": "Номер", "type": "str", "required": true},
+    {"name": "Кем выдан", "type": "str", "required": true},
+    {"name": "Дата выдачи", "type": "date", "required": true}
+  ]
+}
