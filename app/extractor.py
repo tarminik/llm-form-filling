@@ -36,12 +36,25 @@ class FormExtractor:
         )
 
     def _build_prompt(self, message: str, session: FormSession) -> str:
-        fields_list = ", ".join(self.field_names)
+        # Собираем подробную инструкцию для LLM с учетом описаний и типов полей
+        field_instructions = []
+        for field_cfg in self.form_config["fields"]:
+            desc = field_cfg.get("description", "")
+            type_ = field_cfg.get("type", "str")
+            req = "обязательное" if field_cfg.get("required", False) else "необязательное"
+            field_instructions.append(
+                f"- {field_cfg['name']} ({type_}, {req}){': ' + desc if desc else ''}"
+            )
+        fields_block = "\n".join(field_instructions)
         return (
-            f"Пользователь написал: {message}\n"
-            f"Извлеки значения для следующих полей формы: {fields_list}. "
-            "Ответь в формате JSON: {\"<название поля>\": <значение>, ...}"
+            f"Ты помощник по заполнению формы: {self.form_config.get('title', '')}. "
+            f"Описание формы: {self.form_config.get('description', '')}\n"
+            f"Текущий ввод пользователя: {message}\n"
+            f"Требуется извлечь значения для следующих полей (описания и требования):\n{fields_block}\n"
+            "Ответь строго в формате JSON: {\"<название поля>\": <значение>, ...}. "
+            "Если значение не найдено, не включай поле в JSON. Не добавляй лишних комментариев."
         )
+
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         import json

@@ -1,14 +1,55 @@
 {
   "id": "passport",
   "title": "Паспорт гражданина РФ",
+  "description": "Форма для заполнения данных паспорта гражданина РФ.",
   "fields": [
-    {"name": "Фамилия", "type": "str", "required": true},
-    {"name": "Имя", "type": "str", "required": true},
-    {"name": "Отчество", "type": "str", "required": false},
-    {"name": "Дата рождения", "type": "date", "required": true},
-    {"name": "Серия", "type": "str", "required": true},
-    {"name": "Номер", "type": "str", "required": true},
-    {"name": "Кем выдан", "type": "str", "required": true},
-    {"name": "Дата выдачи", "type": "date", "required": true}
+    {
+      "name": "Фамилия",
+      "type": "str",
+      "required": true,
+      "description": "Фамилия как указано в паспорте."
+    },
+    {
+      "name": "Имя",
+      "type": "str",
+      "required": true,
+      "description": "Имя как указано в паспорте."
+    },
+    {
+      "name": "Отчество",
+      "type": "str",
+      "required": false,
+      "description": "Отчество (если есть)."
+    },
+    {
+      "name": "Дата рождения",
+      "type": "date",
+      "required": true,
+      "description": "Дата рождения в формате ДД.ММ.ГГГГ."
+    },
+    {
+      "name": "Серия",
+      "type": "str",
+      "required": true,
+      "description": "4 цифры, серия паспорта."
+    },
+    {
+      "name": "Номер",
+      "type": "str",
+      "required": true,
+      "description": "6 цифр, номер паспорта."
+    },
+    {
+      "name": "Кем выдан",
+      "type": "str",
+      "required": true,
+      "description": "Название органа, выдавшего паспорт."
+    },
+    {
+      "name": "Дата выдачи",
+      "type": "date",
+      "required": true,
+      "description": "Дата выдачи паспорта в формате ДД.ММ.ГГГГ."
+    }
   ]
 }

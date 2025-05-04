@@ -23,6 +23,19 @@ class Conversation(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    def add_message(self, role: MessageRole, content: str):
+        """
+        Добавляет новое сообщение в диалог.
+        Аргументы:
+            role (MessageRole): Роль отправителя (user, assistant, system).
+            content (str): Текст сообщения.
+        Сообщение автоматически получает текущее время как timestamp.
+        """
+        msg = Message(role=role, content=content)
+        self.messages.append(msg)
+        self.updated_at = datetime.now()
+
+
 class FieldStatus(str, Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -39,10 +52,17 @@ class FieldValue(BaseModel):
 
 class FormField(BaseModel):
     name: str
+    type: str  # Тип поля (str, date, list, checkbox, reference и т.д.)
+    required: bool = True  # Обязательное ли поле
+    description: Optional[str] = None  # Описание поля для пользователя и LLM
+    options: Optional[List[str]] = None  # Для списков и чекбоксов
+    reference_type: Optional[str] = None  # Для ссылочных полей (например, "city")
     status: FieldStatus = FieldStatus.NOT_STARTED
     value: Optional[FieldValue] = None
     attempts: int = 0
     last_prompt: Optional[str] = None
+    # Старые поля и методы оставляем для совместимости
+
 
 class FormSession(BaseModel):
     id: str
