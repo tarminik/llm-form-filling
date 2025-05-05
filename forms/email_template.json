@@ -1,0 +1,25 @@
+{
+  "id": "email",
+  "title": "Электронное письмо",
+  "description": "Форма для составления электронного письма.",
+  "fields": [
+    {
+      "name": "Адрес получателя",
+      "type": "str",
+      "required": true,
+      "description": "Email-адрес получателя письма."
+    },
+    {
+      "name": "Тема",
+      "type": "str",
+      "required": true,
+      "description": "Тема письма."
+    },
+    {
+      "name": "Содержание",
+      "type": "str",
+      "required": true,
+      "description": "Основной текст письма."
+    }
+  ]
+} 
