@@ -3,9 +3,12 @@ DialogManager — основной управляющий класс диало�
 Оркестрирует загрузку формы, цикл опроса пользователя, взаимодействие с LLM и сохранение результата.
 """
 
+import os
+import time
 from typing import Optional
 from app.models import Form, FormState
-from datetime import datetime
+from app import form_loader
+from app.extractor import extract_fields
 
 class DialogManager:
     """
@@ -21,16 +24,18 @@ class DialogManager:
         Инициализация менеджера:
         - Загружает форму по пути
         - Создаёт начальный state
-        - Формирует путь для сохранения результата
+        - Подготавливает путь сохранения ответа
         """
-        # ... здесь будет загрузка формы и state ...
-        self.form: Optional[Form] = None
-        self.state: Optional[FormState] = None
-        self.form_id: Optional[str] = None
-        self.form_path = form_path
-        # Формируем путь для сохранения результата заранее
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.output_path = f"answers/{{form_id}}_{timestamp}.json"  # form_id подставится после загрузки формы
+        self.form: Form = form_loader.load_form(form_path)
+        self.state: FormState = form_loader.init_state(self.form)
+        self.messages: list[dict[str, str]] = []
+
+        # Уникальное имя результата
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        form_id = self.form["id"]
+        self.output_path = os.path.join("answers", f"{form_id}_{timestamp}.json")
+
+        print(f"Форма загружена: {self.form['title']}")
 
     def run(self):
         """
@@ -40,31 +45,86 @@ class DialogManager:
         - После заполнения вызывает confirm_answers
         - Если подтверждено — сохраняет результат
         """
-        pass
+        from app.extractor import extract_fields
+
+        print("\nНачинаем заполнение формы. Для выхода в любой момент введите 'выход'.\n")
+
+        while True:
+            next_field = self.get_next_field()
+            if next_field is None:
+                # Все поля заполнены или пропущены
+                print("\nВсе поля заполнены или пропущены.")
+                if self.confirm_answers():
+                    self.save_result()
+                    print(f"\nРезультат сохранён в {self.output_path}")
+                    break
+                else:
+                    # Пользователь хочет внести исправления
+                    correction = input("\nУточните, что нужно изменить: ")
+                    if correction.strip().lower() == "выход":
+                        print("Выход без сохранения.")
+                        break
+                    self.messages.append({"role": "user", "content": correction})
+                    try:
+                        self.state = extract_fields(self.messages, self.form, self.state)
+                    except Exception as e:
+                        print(f"Ошибка при повторной обработке: {e}")
+                    continue
+
+            # Спросить пользователя
+            user_input = self.ask_user(next_field)
+            if user_input.strip().lower() == "выход":
+                print("Выход без сохранения.")
+                break
+
+            # Добавить в историю: assistant (вопрос), user (ответ)
+            question = f"Введите значение поля '{next_field}':"
+            self.messages.append({"role": "assistant", "content": question})
+            self.messages.append({"role": "user", "content": user_input})
+
+            # Вызвать extractor для обновления state
+            try:
+                new_state = extract_fields(self.messages, self.form, self.state)
+                self.state = new_state
+            except Exception as e:
+                print(f"Ошибка при обработке ответа LLM: {e}")
+                continue
 
     def ask_user(self, field_name: str) -> str:
         """
-        Задаёт вопрос пользователю по имени поля и получает ответ (input).
-        Возвращает строку-ответ пользователя.
+        Задаёт вопрос пользователю по имени поля и получает ответ.
         """
-        pass
+        return input(f">>> Введите значение поля '{field_name}': ")
 
     def confirm_answers(self) -> bool:
         """
-        Показывает пользователю сводку всех ответов и просит подтверждение.
-        Возвращает True, если пользователь подтверждает, иначе False.
+        Показывает пользователю текущие значения и просит подтверждение.
         """
-        pass
+        print("\n--- Проверка заполненных данных ---")
+        for name, field in self.state.items():
+            if field["status"] == "filled":
+                print(f"{name}: {field['value']}")
+            elif field["status"] == "skipped":
+                print(f"{name}: <пропущено>")
+        print("-----------------------------------")
+
+        response = input("Все данные верны? (да/нет): ").strip().lower()
+        return response in ["да", "yes", "ок", "всё верно", "подтверждаю"]
 
     def save_result(self):
         """
-        Сохраняет финальный state в папку answers/ с уникальным именем.
+        Сохраняет итоговый state в JSON-файл в папке answers.
         """
-        pass
+        import json
+        os.makedirs("answers", exist_ok=True)
+        with open(self.output_path, "w", encoding="utf-8") as f:
+            json.dump(self.state, f, ensure_ascii=False, indent=2)
 
     def get_next_field(self) -> Optional[str]:
         """
-        Возвращает имя следующего поля для заполнения (или None, если всё заполнено).
-        В будущем сюда можно добавить более сложную логику выбора.
+        Возвращает имя следующего поля для заполнения (или None, если всё заполнено/пропущено).
         """
-        pass
+        for name, field in self.state.items():
+            if field["status"] in ["not_started", "invalid"]:
+                return name
+        return None
