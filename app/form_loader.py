@@ -1,47 +1,50 @@
 """
-Модуль для загрузки и валидации шаблонов форм из JSON-файлов.
+Модуль загрузки формы и генерации начального состояния.
 """
+
 import json
-from pathlib import Path
-from typing import Dict, Any
-from pydantic import ValidationError
-from app.models import FormField, FieldStatus
+from typing import Dict
+from app.models import Form, Field, FormState, FieldState, FieldStatus, FieldType
 
-FORMS_DIR = Path(__file__).parent.parent / "forms"
-
-
-def load_form_template(form_path: Path) -> Dict[str, Any]:
-    """Загрузить шаблон формы из JSON-файла."""
+def load_form(form_path: str) -> Form:
+    """
+    Загружает и валидирует JSON-форму по указанному пути.
+    """
     with open(form_path, encoding="utf-8") as f:
         data = json.load(f)
-    # Валидация структуры формы (минимально)
-    assert "id" in data, "В шаблоне формы должен быть id"
-    assert "fields" in data, "В шаблоне формы должен быть список fields"
+
+    # Базовая проверка
+    required_keys = {"id", "title", "description", "fields"}
+    if not required_keys.issubset(data):
+        missing = required_keys - data.keys()
+        raise ValueError(f"Форма некорректна, отсутствуют ключи: {missing}")
+
+    # Проверка полей
     for field in data["fields"]:
-        assert "name" in field, "Каждое поле должно иметь name"
-        assert "type" in field, f"Поле {field['name']} должно иметь type (например, str, date, list, checkbox, reference)"
-        assert "required" in field, f"Поле {field['name']} должно иметь required (True/False)"
-        # Описание желательно для корректной генерации вопросов LLM
-        if "description" not in field:
-            print(f"[WARNING] Поле {field['name']} не имеет description — вопросы LLM могут быть менее точными.")
-        # Для списков и чекбоксов обязательно наличие options
-        if field["type"] in ["list", "checkbox"]:
-            assert "options" in field, f"Поле {field['name']} типа {field['type']} должно иметь options (варианты выбора)"
-        # Для ссылочных полей обязательно указать reference_type
-        if field["type"] == "reference":
-            assert "reference_type" in field, f"Поле {field['name']} типа reference должно иметь reference_type (например, 'city')"
-    return data
+        if not {"name", "type", "required", "description"}.issubset(field):
+            raise ValueError(f"Некорректное поле: {field}")
 
+        if field["type"] not in FieldType.__args__:
+            raise ValueError(f"Недопустимый тип поля: {field['type']}")
 
-def list_form_templates() -> Dict[str, Path]:
-    """Получить список всех доступных форм (id -> путь)."""
-    result = {}
-    if not FORMS_DIR.exists():
-        return result
-    for file in FORMS_DIR.glob("*.json"):
-        try:
-            data = load_form_template(file)
-            result[data["id"]] = file
-        except Exception:
-            continue
-    return result
+        if field["type"] in ("enum", "multi_enum"):
+            if "options" not in field:
+                raise ValueError(f"Поле типа {field['type']} должно содержать 'options'")
+
+    return data  # тип Form
+
+def init_state(form: Form) -> FormState:
+    """
+    Создаёт начальное состояние формы: value=None, status=not_started, optional по required.
+    """
+    state: FormState = {}
+
+    for field in form["fields"]:
+        name = field["name"]
+        state[name] = {
+            "value": None,
+            "status": FieldStatus.NOT_STARTED,
+            "optional": not field["required"]
+        }
+
+    return state
