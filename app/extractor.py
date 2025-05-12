@@ -7,11 +7,22 @@
 """
 
 import json
+import re
 from typing import List, Dict
 from app.models import Form, FormState
 from app.llm_service import LLMService
 
 llm = LLMService()
+
+def extract_json_from_markdown(text: str) -> str:
+    """
+    Удаляет markdown-блоки ```json ... ``` или ``` ... ``` вокруг JSON-ответа LLM.
+    Возвращает чистый JSON-стринг.
+    """
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        return match.group(1)
+    return text
 
 def extract_fields(
     messages: List[Dict[str, str]],
@@ -48,9 +59,9 @@ def extract_fields(
     })
 
     response = llm.ask(full_messages)
-    
+    cleaned = extract_json_from_markdown(response)
     try:
-        updated_state: FormState = json.loads(response)
+        updated_state: FormState = json.loads(cleaned)
         return updated_state
     except json.JSONDecodeError as e:
         raise ValueError(f"LLM вернула некорректный JSON: {e}\nОтвет: {response}")
