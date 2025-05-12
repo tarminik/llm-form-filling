@@ -1,11 +1,17 @@
 """
-extractor.py — взаимодействие с LLM для обновления состояния формы на основе истории диалога.
+Модуль extractor отвечает за взаимодействие с LLM:
+- принимает текущую историю сообщений, форму и state,
+- формирует system prompt,
+- передаёт всё в LLM,
+- получает и возвращает обновлённый state.
 """
+
+import json
 from typing import List, Dict
 from app.models import Form, FormState
 from app.llm_service import LLMService
-import json
 
+llm = LLMService()
 
 def extract_fields(
     messages: List[Dict[str, str]],
@@ -13,28 +19,38 @@ def extract_fields(
     state: FormState
 ) -> FormState:
     """
-    Отправляет всю историю общения, форму и state в LLM.
-    Возвращает обновлённый state.
-
-    messages: список сообщений (system, assistant, user) в хронологическом порядке.
-    form: структура формы (dict).
-    state: текущее состояние (dict).
-
-    Пример структуры messages:
-    [
-        {"role": "system", "content": "...инструкция и JSON формы+state..."},
-        {"role": "assistant", "content": "Введите значение поля 'Имя'."},
-        {"role": "user", "content": "Иван"},
-        ...
-    ]
-
-    Важно:
-    - В system prompt сериализовать form и state (или добавить отдельным сообщением).
-    - После вызова LLM валидировать, что ответ — корректный JSON с обновлённым state.
+    Отправляет историю, форму и state в LLM.
+    Возвращает обновлённый FormState.
     """
-    # 1. Сформировать system prompt с формой и state
-    # 2. Добавить историю сообщений
-    # 3. Вызвать LLMService.ask(messages)
-    # 4. Распарсить ответ, проверить структуру
-    # 5. Вернуть обновлённый state
-    pass
+
+    system_prompt = (
+        "Ты помощник, который помогает пользователю заполнить форму. "
+        "Форма описана ниже как JSON. "
+        "Пользователь отвечает на вопросы, иногда сразу даёт несколько ответов. "
+        "Твоя задача — по каждому новому сообщению определить, какие поля можно заполнить, "
+        "и обновить их значения и статусы. "
+        "Статусы полей: not_started, filled, invalid, skipped. "
+        "Нельзя перезаписывать поля, у которых статус filled или skipped, кроме случаев, когда пользователь прямо вносит правку. "
+        "Верни только JSON с обновлённым state (в формате name: {value, status, optional}), без пояснений или комментариев."
+    )
+
+    full_messages = [{"role": "system", "content": system_prompt}]
+    full_messages += messages
+
+    full_messages.append({
+        "role": "system",
+        "content": (
+            "Вот описание формы:\n"
+            f"{json.dumps(form, ensure_ascii=False, indent=2)}\n\n"
+            "Вот текущее состояние state:\n"
+            f"{json.dumps(state, ensure_ascii=False, indent=2)}"
+        )
+    })
+
+    response = llm.ask(full_messages)
+    
+    try:
+        updated_state: FormState = json.loads(response)
+        return updated_state
+    except json.JSONDecodeError as e:
+        raise ValueError(f"LLM вернула некорректный JSON: {e}\nОтвет: {response}")
