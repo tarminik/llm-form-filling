@@ -1,94 +1,54 @@
 """
-Модели данных для системы диалогового заполнения форм.
+Типы данных для формы, полей и состояний заполнения.
 """
-from datetime import datetime
+
 from enum import Enum
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field
+from typing import Optional, List, Union, Literal, Dict, TypedDict
 
-class MessageRole(str, Enum):
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-
-class Message(BaseModel):
-    role: MessageRole
-    content: str
-    timestamp: datetime = Field(default_factory=datetime.now)
-
-class Conversation(BaseModel):
-    id: str
-    messages: List[Message] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-    def add_message(self, role: MessageRole, content: str):
-        """
-        Добавляет новое сообщение в диалог.
-        Аргументы:
-            role (MessageRole): Роль отправителя (user, assistant, system).
-            content (str): Текст сообщения.
-        Сообщение автоматически получает текущее время как timestamp.
-        """
-        msg = Message(role=role, content=content)
-        self.messages.append(msg)
-        self.updated_at = datetime.now()
-
-
+# Статусы заполнения поля
 class FieldStatus(str, Enum):
+    """Возможные статусы заполнения поля формы."""
     NOT_STARTED = "not_started"
-    IN_PROGRESS = "in_progress"
     FILLED = "filled"
-    CONFIRMED = "confirmed"
     INVALID = "invalid"
     SKIPPED = "skipped"
 
-class FieldValue(BaseModel):
-    value: Any
-    confidence: float = 1.0
-    extracted_from: Optional[str] = None
-    last_updated: datetime = Field(default_factory=datetime.now)
+# Типы полей формы
+FieldType = Literal[
+    "str", "int", "float", "bool", "date",
+    "email", "phone", "url", "enum", "multi_enum", "list_str"
+]
 
-class FormField(BaseModel):
+# Описание одного поля в форме
+class Field(TypedDict):
+    """
+    Описание одного поля в форме.
+    options — только для enum/multi_enum, иначе отсутствует.
+    """
     name: str
-    type: str  # Тип поля (str, date, list, checkbox, reference и т.д.)
-    required: bool = True  # Обязательное ли поле
-    description: Optional[str] = None  # Описание поля для пользователя и LLM
-    options: Optional[List[str]] = None  # Для списков и чекбоксов
-    reference_type: Optional[str] = None  # Для ссылочных полей (например, "city")
-    status: FieldStatus = FieldStatus.NOT_STARTED
-    value: Optional[FieldValue] = None
-    attempts: int = 0
-    last_prompt: Optional[str] = None
-    # Старые поля и методы оставляем для совместимости
+    type: FieldType
+    required: bool
+    description: str
+    options: Optional[List[str]]  # Только для enum/multi_enum, иначе отсутствует
 
-
-class FormSession(BaseModel):
+# Описание всей формы
+class Form(TypedDict):
+    """
+    Описание всей формы: id, заголовок, описание и список полей.
+    """
     id: str
-    form_id: str
-    fields: Dict[str, FormField] = Field(default_factory=dict)
-    conversation_id: str
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
-    completed: bool = False
-    current_field: Optional[str] = None
+    title: str
+    description: str
+    fields: List[Field]
 
-    def get_filled_data(self):
-        return {name: field.value.value for name, field in self.fields.items() if field.value is not None}
+# Состояние одного поля во время диалога
+class FieldState(TypedDict):
+    """
+    Состояние одного поля: значение, статус, признак необязательности.
+    """
+    value: Optional[Union[str, int, float, bool, List[str]]]
+    status: FieldStatus
+    optional: bool
 
-    def is_complete(self):
-        return all(field.status == FieldStatus.CONFIRMED for field in self.fields.values())
-
-class ExtractedField(BaseModel):
-    field_name: str
-    value: Any
-    confidence: float
-    context: Optional[str] = None
-
-class ExtractionResult(BaseModel):
-    extracted_fields: List[ExtractedField]
-    missing_fields: List[str]
-    ambiguous_fields: List[str]
-    contradictions: List[Dict[str, Any]]
-    raw_llm_response: Optional[str] = None
+# Состояние всей формы: имя_поля → состояние
+FormState = Dict[str, FieldState]
