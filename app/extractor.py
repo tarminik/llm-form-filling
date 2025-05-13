@@ -27,11 +27,13 @@ def extract_json_from_markdown(text: str) -> str:
 def extract_fields(
     messages: List[Dict[str, str]],
     form: Form,
-    state: FormState
+    state: FormState,
+    log_callback=None
 ) -> FormState:
     """
     Отправляет историю, форму и state в LLM.
     Возвращает обновлённый FormState.
+    log_callback: функция для логирования событий (role, content)
     """
 
     system_prompt = (
@@ -42,6 +44,7 @@ def extract_fields(
         "и обновить их значения и статусы. "
         "Статусы полей: not_started, filled, invalid, skipped. "
         "Нельзя перезаписывать поля, у которых статус filled или skipped, кроме случаев, когда пользователь прямо вносит правку. "
+        "Ты всегда возвращаешь только JSON, без пояснений, вопросов и текста. "
         "Верни только JSON с обновлённым state (в формате name: {value, status, optional}), без пояснений или комментариев."
     )
 
@@ -59,9 +62,20 @@ def extract_fields(
     })
 
     response = llm.ask(full_messages)
+    if log_callback:
+        log_callback("llm_raw", response)
     cleaned = extract_json_from_markdown(response)
+    if not cleaned.strip().startswith(("{", "[")):
+        if log_callback:
+            log_callback("error", f"LLM вернула не JSON: {cleaned!r}")
+        raise ValueError(
+            f"LLM вернула не JSON, а текст: {cleaned!r}\n"
+            "Возможно, LLM сбилась с инструкции. Попробуйте повторить ввод или перезапустить диалог."
+        )
     try:
         updated_state: FormState = json.loads(cleaned)
         return updated_state
     except json.JSONDecodeError as e:
+        if log_callback:
+            log_callback("error", f"Ошибка парсинга JSON: {e}\nОтвет: {response}")
         raise ValueError(f"LLM вернула некорректный JSON: {e}\nОтвет: {response}")

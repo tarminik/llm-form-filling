@@ -81,8 +81,8 @@ class DialogManager:
                     self.log_event("user", correction)
                     self.messages.append({"role": "user", "content": correction})
                     try:
-                        self.state = extract_fields(self.messages, self.form, self.state)
-                        self.log_event("llm", json.dumps(self.state, ensure_ascii=False))
+                        # Получаем raw-ответ LLM через extract_fields, логируем его внутри extract_fields
+                        self.state = extract_fields(self.messages, self.form, self.state, log_callback=self.log_event)
                     except Exception as e:
                         err = f"Ошибка при повторной обработке: {e}"
                         print(err)
@@ -104,8 +104,8 @@ class DialogManager:
 
             # Вызвать extractor для обновления state
             try:
-                new_state = extract_fields(self.messages, self.form, self.state)
-                self.log_event("llm", json.dumps(new_state, ensure_ascii=False))
+                # Получаем raw-ответ LLM через extract_fields, логируем его внутри extract_fields
+                new_state = extract_fields(self.messages, self.form, self.state, log_callback=self.log_event)
                 self.state = new_state
             except Exception as e:
                 err = f"Ошибка при обработке ответа LLM: {e}"
