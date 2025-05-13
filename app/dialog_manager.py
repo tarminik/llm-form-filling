@@ -9,6 +9,8 @@ from typing import Optional
 from app.models import Form, FormState
 from app import form_loader
 from app.extractor import extract_fields
+import json
+from datetime import datetime
 
 class DialogManager:
     """
@@ -34,8 +36,21 @@ class DialogManager:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         form_id = self.form["id"]
         self.output_path = os.path.join("answers", f"{form_id}_{timestamp}.json")
-
+        self.log_path = os.path.join("answers", f"{form_id}_{timestamp}_log.json")
+        self.log = []  # Список событий для логгирования
         print(f"Форма загружена: {self.form['title']}")
+
+    def log_event(self, role: str, content: str):
+        """
+        Добавляет событие в лог с таймстемпом.
+        role: 'user', 'assistant', 'llm', 'error'
+        content: текст сообщения или JSON-ответа
+        """
+        self.log.append({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "role": role,
+            "content": content
+        })
 
     def run(self):
         """
@@ -45,7 +60,6 @@ class DialogManager:
         - После заполнения вызывает confirm_answers
         - Если подтверждено — сохраняет результат
         """
-        from app.extractor import extract_fields
 
         print("\nНачинаем заполнение формы. Для выхода в любой момент введите 'выход'.\n")
 
@@ -64,11 +78,15 @@ class DialogManager:
                     if correction.strip().lower() == "выход":
                         print("Выход без сохранения.")
                         break
+                    self.log_event("user", correction)
                     self.messages.append({"role": "user", "content": correction})
                     try:
                         self.state = extract_fields(self.messages, self.form, self.state)
+                        self.log_event("llm", json.dumps(self.state, ensure_ascii=False))
                     except Exception as e:
-                        print(f"Ошибка при повторной обработке: {e}")
+                        err = f"Ошибка при повторной обработке: {e}"
+                        print(err)
+                        self.log_event("error", err)
                     continue
 
             # Спросить пользователя
@@ -79,15 +97,20 @@ class DialogManager:
 
             # Добавить в историю: assistant (вопрос), user (ответ)
             question = f"Введите значение поля '{next_field}':"
+            self.log_event("assistant", question)
+            self.log_event("user", user_input)
             self.messages.append({"role": "assistant", "content": question})
             self.messages.append({"role": "user", "content": user_input})
 
             # Вызвать extractor для обновления state
             try:
                 new_state = extract_fields(self.messages, self.form, self.state)
+                self.log_event("llm", json.dumps(new_state, ensure_ascii=False))
                 self.state = new_state
             except Exception as e:
-                print(f"Ошибка при обработке ответа LLM: {e}")
+                err = f"Ошибка при обработке ответа LLM: {e}"
+                print(err)
+                self.log_event("error", err)
                 continue
 
     def ask_user(self, field_name: str) -> str:
@@ -115,10 +138,12 @@ class DialogManager:
         """
         Сохраняет итоговый state в JSON-файл в папке answers.
         """
-        import json
         os.makedirs("answers", exist_ok=True)
         with open(self.output_path, "w", encoding="utf-8") as f:
             json.dump(self.state, f, ensure_ascii=False, indent=2)
+        # Сохраняем лог
+        with open(self.log_path, "w", encoding="utf-8") as f:
+            json.dump(self.log, f, ensure_ascii=False, indent=2)
 
     def get_next_field(self) -> Optional[str]:
         """
