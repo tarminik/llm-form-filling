@@ -36,7 +36,7 @@ class DialogManager:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         form_id = self.form["id"]
         self.output_path = os.path.join("answers", f"{form_id}_{timestamp}.json")
-        self.log_path = os.path.join("answers", f"{form_id}_{timestamp}_log.json")
+        self.log_path = os.path.join("logs", f"{form_id}_{timestamp}_log.json")
         self.log = []  # Список событий для логгирования
         print(f"Форма загружена: {self.form['title']}")
 
@@ -141,7 +141,7 @@ class DialogManager:
         os.makedirs("answers", exist_ok=True)
         with open(self.output_path, "w", encoding="utf-8") as f:
             json.dump(self.state, f, ensure_ascii=False, indent=2)
-        # Сохраняем лог
+        os.makedirs("logs", exist_ok=True)
         with open(self.log_path, "w", encoding="utf-8") as f:
             json.dump(self.log, f, ensure_ascii=False, indent=2)
 
