@@ -10,9 +10,9 @@ import json
 import re
 from typing import List, Dict
 from app.models import Form, FormState
-from app.llm_service import LLMService
+from llm.deepseek import DeepSeekLLM
 
-llm = LLMService()
+llm = DeepSeekLLM()
 
 def extract_json_from_markdown(text: str) -> str:
     """
