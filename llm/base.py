@@ -1,9 +1,17 @@
 """
-Базовый интерфейс для всех LLM-провайдеров.
+Универсальный базовый класс для всех LLM-провайдеров.
+Содержит общую логику отправки запроса и обработки ошибок.
+Провайдеры должны реализовать методы build_payload, build_headers, parse_response.
 """
 from typing import List, Dict, Any
+import requests
 
 class LLMBase:
+    def __init__(self, api_url: str, api_key: str, model: str = None):
+        self.api_url = api_url
+        self.api_key = api_key
+        self.model = model
+
     def ask(
         self,
         messages: List[Dict[str, str]],
@@ -11,7 +19,37 @@ class LLMBase:
         max_tokens: int = 1024
     ) -> str:
         """
-        Отправляет сообщения в LLM и возвращает ответ.
-        Должен быть реализован в каждом конкретном провайдере.
+        Общий метод для отправки сообщений в LLM и получения ответа.
         """
-        raise NotImplementedError("Метод ask должен быть реализован в наследнике LLMBase.") 
+        payload = self.build_payload(messages, temperature, max_tokens)
+        headers = self.build_headers()
+        try:
+            response = requests.post(self.api_url, json=payload, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            return self.parse_response(data)
+        except requests.RequestException as e:
+            raise RuntimeError(f"Ошибка при обращении к LLM API: {e}")
+        except (KeyError, IndexError):
+            raise ValueError("Ответ от LLM некорректен или неполон")
+
+    def build_payload(self, messages, temperature, max_tokens):
+        """
+        Формирует payload для конкретного API.
+        Должен быть реализован в наследнике.
+        """
+        raise NotImplementedError
+
+    def build_headers(self):
+        """
+        Формирует headers для конкретного API.
+        Должен быть реализован в наследнике.
+        """
+        raise NotImplementedError
+
+    def parse_response(self, data):
+        """
+        Извлекает текст ответа из данных API.
+        Должен быть реализован в наследнике.
+        """
+        raise NotImplementedError 
