@@ -10,9 +10,9 @@ import json
 import re
 from typing import List, Dict
 from app.models import Form, FormState
-from llm.deepseek import DeepSeekLLM
+from llm import get_llm  # Используем универсальный выбор LLM-провайдера
 
-llm = DeepSeekLLM()
+llm = get_llm()  # Теперь провайдер выбирается через .env (LLM_PROVIDER)
 
 def extract_json_from_markdown(text: str) -> str:
     """
