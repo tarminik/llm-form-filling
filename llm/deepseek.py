@@ -12,6 +12,7 @@ load_dotenv()
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+
 if not (DEEPSEEK_API_KEY and DEEPSEEK_API_URL):
     raise RuntimeError("Ошибка конфигурации: проверьте, что DEEPSEEK_API_KEY и DEEPSEEK_API_URL заданы в .env")
 
@@ -27,7 +28,7 @@ class DeepSeekLLM(LLMBase):
             model=model or DEEPSEEK_MODEL
         )
 
-    def build_payload(self, messages, temperature, max_tokens):
+    def build_payload(self, messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> Dict[str, Any]:
         return {
             "model": self.model,
             "messages": messages,
@@ -35,12 +36,12 @@ class DeepSeekLLM(LLMBase):
             "max_tokens": max_tokens
         }
 
-    def build_headers(self):
+    def build_headers(self) -> Dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
 
-    def parse_response(self, data):
+    def parse_response(self, data: Dict[str, Any]) -> str:
         # DeepSeek возвращает OpenAI-совместимый формат
         return data["choices"][0]["message"]["content"] 

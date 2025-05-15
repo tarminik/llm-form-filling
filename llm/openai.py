@@ -10,8 +10,9 @@ from llm.base import LLMBase
 # Загружаем переменные окружения для OpenAI
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_API_URL = os.getenv("OPENAI_API_URL")  # Например, https://api.openai.com/v1/chat/completions
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+OPENAI_API_URL = os.getenv("OPENAI_API_URL")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
+
 if not (OPENAI_API_KEY and OPENAI_API_URL):
     raise RuntimeError("Ошибка конфигурации: проверьте, что OPENAI_API_KEY и OPENAI_API_URL заданы в .env")
 
