@@ -70,55 +70,60 @@ class DialogManager:
 
         print("\nНачинаем заполнение формы. Для выхода в любой момент введите 'выход'.\n")
 
+        next_question = None
+        first_run = True
         while True:
-            next_field = self.get_next_field()
-            if next_field is None:
-                # Все поля заполнены или пропущены
-                print("\nВсе поля заполнены или пропущены.")
-                if self.confirm_answers():
-                    self.save_result()
-                    print(f"\nРезультат сохранён в {self.output_path}")
+            if first_run:
+                # Для первого вопроса: спрашиваем по get_next_field
+                self.messages = []
+                next_field = self.get_next_field()
+                if next_field is None:
+                    print("\nНет полей для заполнения.")
                     break
-                else:
-                    # Пользователь хочет внести исправления
-                    correction = input("\nУточните, что нужно изменить: ")
-                    if correction.strip().lower() == "выход":
-                        print("Выход без сохранения.")
-                        break
-                    self.log_event("user", correction)
-                    self.messages.append({"role": "user", "content": correction})
-                    try:
-                        # Получаем raw-ответ LLM через extract_fields, логируем его внутри extract_fields
-                        self.state = extract_fields(self.messages, self.form, self.state, log_callback=self.log_event)
-                    except Exception as e:
-                        err = f"Ошибка при повторной обработке: {e}"
-                        print(err)
-                        self.log_event("error", err)
+                next_question = f"Введите значение поля '{next_field}':"
+                first_run = False
+            else:
+                # После каждого ответа вызываем extract_fields
+                try:
+                    self.state, next_question = extract_fields(self.messages, self.form, self.state, log_callback=self.log_event)
+                except Exception as e:
+                    err = f"Ошибка при обработке ответа LLM: {e}"
+                    print(err)
+                    self.log_event("error", err)
                     continue
 
-            # Спросить пользователя
-            user_input = self.ask_user(next_field)
+                # Если нет полей invalid, формируем вопрос кодом
+                invalid_fields = [name for name, field in self.state.items() if field["status"] == "invalid"]
+                if not invalid_fields:
+                    next_field = self.get_next_field()
+                    if next_field is None:
+                        print("\nВсе поля заполнены или пропущены.")
+                        if self.confirm_answers():
+                            self.save_result()
+                            print(f"\nРезультат сохранён в {self.output_path}")
+                            break
+                        else:
+                            # Пользователь хочет внести исправления
+                            correction = input("\nУточните, что нужно изменить: ")
+                            if correction.strip().lower() == "выход":
+                                print("Выход без сохранения.")
+                                break
+                            self.log_event("user", correction)
+                            self.messages.append({"role": "user", "content": correction})
+                            continue
+                    next_question = f"Введите значение поля '{next_field}':"
+                # иначе next_question уже содержит уточняющий вопрос от LLM
+
+            print(next_question)
+            user_input = input("> ")
             if user_input.strip().lower() == "выход":
                 print("Выход без сохранения.")
                 break
 
-            # Добавить в историю: assistant (вопрос), user (ответ)
-            question = f"Введите значение поля '{next_field}':"
-            self.log_event("assistant", question)
+            self.log_event("assistant", next_question)
             self.log_event("user", user_input)
-            self.messages.append({"role": "assistant", "content": question})
+            self.messages.append({"role": "assistant", "content": next_question})
             self.messages.append({"role": "user", "content": user_input})
-
-            # Вызвать extractor для обновления state
-            try:
-                # Получаем raw-ответ LLM через extract_fields, логируем его внутри extract_fields
-                new_state = extract_fields(self.messages, self.form, self.state, log_callback=self.log_event)
-                self.state = new_state
-            except Exception as e:
-                err = f"Ошибка при обработке ответа LLM: {e}"
-                print(err)
-                self.log_event("error", err)
-                continue
 
     def ask_user(self, field_name: str) -> str:
         """

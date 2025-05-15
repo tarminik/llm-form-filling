@@ -29,24 +29,32 @@ def extract_fields(
     form: Form,
     state: FormState,
     log_callback=None
-) -> FormState:
+) -> tuple[FormState, str]:
     """
     Отправляет историю, форму и state в LLM.
-    Возвращает обновлённый FormState.
+    Возвращает кортеж: (обновлённый FormState, next_question).
     log_callback: функция для логирования событий (role, content)
     """
 
     system_prompt = (
-        "Ты помощник, который помогает пользователю заполнить форму. "
-        "Форма описана ниже как JSON. "
-        "Пользователь отвечает на вопросы, иногда сразу даёт несколько ответов. "
-        "Твоя задача — по каждому новому сообщению определить, какие поля можно заполнить, "
-        "и обновить их значения и статусы. "
-        "Статусы полей: not_started, filled, invalid, skipped. "
-        "Нельзя перезаписывать поля, у которых статус filled или skipped, кроме случаев, когда пользователь прямо вносит правку. "
-        "Ты всегда возвращаешь только JSON, без пояснений, вопросов и текста. "
-        "Верни только JSON с обновлённым state (в формате name: {value, status, optional}), без пояснений или комментариев."
+        "Ты — ассистент, помогающий пользователю заполнить форму. "
+        "Форма описана ниже в формате JSON. "
+        "Пользователь отвечает на вопросы, иногда указывая сразу несколько значений. "
+        "Твоя задача — обновить состояния всех полей (добавить значения и статусы), которые можно заполнить по новому сообщению. "
+        "Поддерживаемые статусы: not_started, filled, invalid, skipped. "
+        "Если значение поля подходит — установи статус filled. "
+        "Если оно некорректно (например, нарушен формат или сомнительное значение) — установи статус invalid. "
+        "Нельзя менять поля со статусами filled или skipped, если пользователь явно не просит это сделать. "
+        "Если хотя бы одно поле получило статус invalid — в ключ 'next_question' запиши уточняющий вопрос, относящийся к одному из таких полей. "
+        "Если все поля валидны или нераспознаны — ключ 'next_question' должен быть null. "
+        "Ответ должен строго соответствовать формату JSON — объект с двумя ключами: "
+        "'state' (словарь name → {value, status, optional}) и 'next_question' (строка или null). "
+        "Пример:\n"
+        '{"state": {"Фамилия": {"value": "Иванов", "status": "filled", "optional": false}}, "next_question": null} '
+        "Никаких пояснений, комментариев или текста вне JSON — только чистый JSON-ответ."
     )
+
+
 
     full_messages = [{"role": "system", "content": system_prompt}]
     full_messages += messages
@@ -73,9 +81,11 @@ def extract_fields(
             "Возможно, LLM сбилась с инструкции. Попробуйте повторить ввод или перезапустить диалог."
         )
     try:
-        updated_state: FormState = json.loads(cleaned)
-        return updated_state
-    except json.JSONDecodeError as e:
+        parsed = json.loads(cleaned)
+        updated_state: FormState = parsed["state"]
+        next_question: str = parsed["next_question"]
+        return updated_state, next_question
+    except Exception as e:
         if log_callback:
             log_callback("error", f"Ошибка парсинга JSON: {e}\nОтвет: {response}")
         raise ValueError(f"LLM вернула некорректный JSON: {e}\nОтвет: {response}")
