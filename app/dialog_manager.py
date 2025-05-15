@@ -61,6 +61,13 @@ class DialogManager:
         - Если подтверждено — сохраняет результат
         """
 
+        # Логируем используемую модель LLM при старте диалога
+        try:
+            from app.extractor import llm
+            self.log_event("llm", f"Используется LLM-модель: {llm.__class__.__name__} (model={getattr(llm, 'model', 'unknown')})")
+        except Exception as e:
+            self.log_event("error", f"Не удалось определить модель LLM: {e}")
+
         print("\nНачинаем заполнение формы. Для выхода в любой момент введите 'выход'.\n")
 
         while True:
