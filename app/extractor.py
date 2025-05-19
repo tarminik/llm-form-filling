@@ -9,7 +9,7 @@
 import json
 import re
 from typing import List, Dict
-from app.models import Form, FormState
+from app.models import Form, FormState, FieldStatus
 from llm import get_llm  # Используем универсальный выбор LLM-провайдера
 
 llm = get_llm()  # Теперь провайдер выбирается через .env (LLM_PROVIDER)
@@ -72,20 +72,65 @@ def extract_fields(
     response = llm.ask(full_messages)
     if log_callback:
         log_callback("llm_raw", response)
-    cleaned = extract_json_from_markdown(response)
-    if not cleaned.strip().startswith(("{", "[")):
-        if log_callback:
-            log_callback("error", f"LLM вернула не JSON: {cleaned!r}")
-        raise ValueError(
-            f"LLM вернула не JSON, а текст: {cleaned!r}\n"
-            "Возможно, LLM сбилась с инструкции. Попробуйте повторить ввод или перезапустить диалог."
-        )
+    
+    # First try to parse as JSON directly
     try:
-        parsed = json.loads(cleaned)
-        updated_state: FormState = parsed["state"]
-        next_question: str = parsed["next_question"]
-        return updated_state, next_question
-    except Exception as e:
-        if log_callback:
-            log_callback("error", f"Ошибка парсинга JSON: {e}\nОтвет: {response}")
-        raise ValueError(f"LLM вернула некорректный JSON: {e}\nОтвет: {response}")
+        parsed = json.loads(response)
+    except json.JSONDecodeError:
+        # If direct parsing fails, try to extract JSON from markdown
+        cleaned = extract_json_from_markdown(response)
+        try:
+            parsed = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            if log_callback:
+                log_callback("error", f"LLM вернула не JSON: {response!r}")
+            raise ValueError(
+                f"LLM вернула не JSON, а текст: {response!r}\n"
+                "Возможно, LLM сбилась с инструкции. Попробуйте повторить ввод или перезапустить диалог."
+            )
+    
+    # Validate response structure
+    if not isinstance(parsed, dict):
+        raise ValueError("LLM вернула не объект JSON")
+        
+    if "state" not in parsed:
+        raise ValueError("В ответе LLM отсутствует ключ 'state'")
+        
+    if "next_question" not in parsed:
+        raise ValueError("В ответе LLM отсутствует ключ 'next_question'")
+        
+    if not isinstance(parsed["state"], dict):
+        raise ValueError("Ключ 'state' должен быть объектом")
+        
+    if not isinstance(parsed["next_question"], (str, type(None))):
+        raise ValueError("Ключ 'next_question' должен быть строкой или null")
+        
+    # Validate each field's state
+    updated_state: FormState = {}
+    
+    # Check that all form fields are present in the response
+    form_field_names = {field["name"] for field in form["fields"]}
+    response_field_names = set(parsed["state"].keys())
+    if not form_field_names.issubset(response_field_names):
+        missing = form_field_names - response_field_names
+        raise ValueError(f"В ответе LLM отсутствуют поля: {missing}")
+        
+    for field_name, field_state in parsed["state"].items():
+        if not isinstance(field_state, dict):
+            raise ValueError(f"Состояние поля '{field_name}' должно быть объектом")
+            
+        required_keys = {"value", "status", "optional"}
+        if not required_keys.issubset(field_state):
+            missing = required_keys - field_state.keys()
+            raise ValueError(f"В состоянии поля '{field_name}' отсутствуют ключи: {missing}")
+            
+        if not isinstance(field_state["optional"], bool):
+            raise ValueError(f"Ключ 'optional' поля '{field_name}' должен быть булевым")
+            
+        if field_state["status"] not in [status.value for status in FieldStatus]:
+            raise ValueError(f"Недопустимый статус поля '{field_name}': {field_state['status']}")
+            
+        updated_state[field_name] = field_state
+        
+    next_question: str = parsed["next_question"]
+    return updated_state, next_question
