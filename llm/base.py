@@ -4,9 +4,10 @@
 Провайдеры должны реализовать методы build_payload, build_headers, parse_response.
 """
 from typing import List, Dict, Any
+from abc import ABC, abstractmethod
 import requests
 
-class LLMBase:
+class LLMBase(ABC):
     def __init__(self, api_url: str, api_key: str, model: str = None):
         self.api_url = api_url
         self.api_key = api_key
@@ -33,6 +34,7 @@ class LLMBase:
         except (KeyError, IndexError):
             raise ValueError("Ответ от LLM некорректен или неполон")
 
+    @abstractmethod
     def build_payload(self, messages, temperature, max_tokens):
         """
         Формирует payload для конкретного API.
@@ -40,6 +42,7 @@ class LLMBase:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def build_headers(self):
         """
         Формирует headers для конкретного API.
@@ -47,6 +50,7 @@ class LLMBase:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def parse_response(self, data):
         """
         Извлекает текст ответа из данных API.
