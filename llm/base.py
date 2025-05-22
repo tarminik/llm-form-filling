@@ -25,7 +25,7 @@ class LLMBase(ABC):
         payload = self.build_payload(messages, temperature, max_tokens)
         headers = self.build_headers()
         try:
-            response = requests.post(self.api_url, json=payload, headers=headers, timeout=30)
+            response = requests.post(self.api_url, json=payload, headers=headers, timeout=60)
             response.raise_for_status()
             data = response.json()
             return self.parse_response(data)
