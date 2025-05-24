@@ -1,0 +1,44 @@
+{
+  "id": "feedback",
+  "title": "Обратная связь по сервису",
+  "description": "Форма для сбора обратной связи от пользователей.",
+  "fields": [
+    {
+      "name": "Имя",
+      "type": "str",
+      "required": false,
+      "description": "Ваше имя (необязательно)."
+    },
+    {
+      "name": "Email",
+      "type": "email",
+      "required": true,
+      "description": "Ваш email для обратной связи."
+    },
+    {
+      "name": "Оценка сервиса",
+      "type": "enum",
+      "required": true,
+      "description": "Поставьте оценку сервису.",
+      "options": ["1", "2", "3", "4", "5"]
+    },
+    {
+      "name": "Комментарий",
+      "type": "str",
+      "required": false,
+      "description": "Ваш комментарий или пожелания."
+    },
+    {
+      "name": "Ссылки на скриншоты",
+      "type": "list_str",
+      "required": false,
+      "description": "Ссылки на скриншоты (если есть)."
+    },
+    {
+      "name": "Разрешить публикацию отзыва",
+      "type": "bool",
+      "required": false,
+      "description": "Можно ли публиковать ваш отзыв?"
+    }
+  ]
+} 

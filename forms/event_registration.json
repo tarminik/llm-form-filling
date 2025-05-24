@@ -1,0 +1,57 @@
+{
+  "id": "event_registration",
+  "title": "Регистрация на мероприятие",
+  "description": "Анкета для регистрации участника на мероприятие.",
+  "fields": [
+    {
+      "name": "Имя",
+      "type": "str",
+      "required": true,
+      "description": "Ваше имя."
+    },
+    {
+      "name": "Фамилия",
+      "type": "str",
+      "required": true,
+      "description": "Ваша фамилия."
+    },
+    {
+      "name": "Email",
+      "type": "email",
+      "required": true,
+      "description": "Ваш email для связи."
+    },
+    {
+      "name": "Телефон",
+      "type": "phone",
+      "required": false,
+      "description": "Контактный телефон (необязательно)."
+    },
+    {
+      "name": "Возраст",
+      "type": "int",
+      "required": true,
+      "description": "Ваш возраст (полных лет)."
+    },
+    {
+      "name": "Город",
+      "type": "str",
+      "required": true,
+      "description": "Город проживания."
+    },
+    {
+      "name": "Тип участия",
+      "type": "enum",
+      "required": true,
+      "description": "Выберите тип участия.",
+      "options": ["Докладчик", "Слушатель", "Волонтёр"]
+    },
+    {
+      "name": "Темы интереса",
+      "type": "multi_enum",
+      "required": false,
+      "description": "Выберите интересующие темы.",
+      "options": ["AI", "ML", "Data Science", "Robotics", "IoT"]
+    }
+  ]
+} 

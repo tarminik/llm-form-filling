@@ -1,0 +1,50 @@
+{
+  "id": "order",
+  "title": "Онлайн-заказ товара",
+  "description": "Форма для оформления онлайн-заказа товара с доставкой.",
+  "fields": [
+    {
+      "name": "ФИО",
+      "type": "str",
+      "required": true,
+      "description": "Фамилия Имя Отчество получателя."
+    },
+    {
+      "name": "Адрес доставки",
+      "type": "str",
+      "required": true,
+      "description": "Полный адрес для доставки."
+    },
+    {
+      "name": "Телефон",
+      "type": "phone",
+      "required": true,
+      "description": "Контактный телефон для связи."
+    },
+    {
+      "name": "Email",
+      "type": "email",
+      "required": false,
+      "description": "Email для уведомлений (необязательно)."
+    },
+    {
+      "name": "Способ оплаты",
+      "type": "enum",
+      "required": true,
+      "description": "Выберите способ оплаты.",
+      "options": ["Карта", "Наличные", "Онлайн"]
+    },
+    {
+      "name": "Список товаров",
+      "type": "list_str",
+      "required": true,
+      "description": "Перечислите товары для заказа (через запятую)."
+    },
+    {
+      "name": "Согласие на обработку данных",
+      "type": "bool",
+      "required": true,
+      "description": "Даете ли вы согласие на обработку персональных данных?"
+    }
+  ]
+} 
